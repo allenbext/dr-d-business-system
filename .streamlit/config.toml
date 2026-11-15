@@ -1,0 +1,46 @@
+# ============================================================
+# .streamlit/config.toml
+#
+# Purpose:
+# Application-wide Streamlit settings for Dr. D's Business System.
+#
+# Streamlit reads this file automatically every time the app starts.
+# The file must be located in:
+#
+#     <project folder>/.streamlit/config.toml
+#
+# After changing this file, STOP Streamlit (Ctrl + C) and start it
+# again. A simple browser refresh is not enough.
+# ============================================================
+
+
+[client]
+
+# Hide the developer toolbar ("Deploy" button and the three-dot menu)
+# in the top-right corner. Dr. D does not need those options.
+toolbarMode = "minimal"
+
+
+[theme]
+
+# Start from Streamlit's standard light theme.
+base = "light"
+
+# NC State red. Used for primary buttons, selected tabs,
+# sliders, radio buttons and focused inputs.
+primaryColor = "#CC0000"
+
+# Page background (light gray).
+backgroundColor = "#F7F7F7"
+
+# Background of input widgets (text, number, date, select boxes).
+# White makes the fields look editable instead of "disabled gray".
+secondaryBackgroundColor = "#FFFFFF"
+
+# Main text color.
+textColor = "#181818"
+
+# Thin gray outline around every input widget, so a white field
+# is still clearly visible on a white form.
+borderColor = "#D0D5DD"
+showWidgetBorder = true
