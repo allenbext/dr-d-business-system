@@ -15,6 +15,9 @@
 --
 -- sale_date already exists in the sales table,
 -- so we do NOT add it again.
+--
+-- Safe to run more than once:
+-- ADD COLUMN IF NOT EXISTS skips a column that already exists.
 -- ============================================================
 
 -- ============================================================
@@ -35,7 +38,7 @@
 -- ============================================================
 
 ALTER TABLE sales
-ADD COLUMN tax_collected NUMERIC(10,2)
+ADD COLUMN IF NOT EXISTS tax_collected NUMERIC(10,2)
 NOT NULL DEFAULT 0.00;
 
 -- ============================================================
@@ -51,7 +54,7 @@ NOT NULL DEFAULT 0.00;
 -- ============================================================
 
 ALTER TABLE sales
-ADD COLUMN shipping_revenue NUMERIC(10,2)
+ADD COLUMN IF NOT EXISTS shipping_revenue NUMERIC(10,2)
 NOT NULL DEFAULT 0.00;
 
 -- ============================================================
@@ -71,7 +74,7 @@ NOT NULL DEFAULT 0.00;
 -- ============================================================
 
 ALTER TABLE sales
-ADD COLUMN shopify_fee NUMERIC(10,2)
+ADD COLUMN IF NOT EXISTS shopify_fee NUMERIC(10,2)
 NOT NULL DEFAULT 0.00;
 
 -- ============================================================
@@ -90,7 +93,7 @@ NOT NULL DEFAULT 0.00;
 -- ============================================================
 
 ALTER TABLE sales
-ADD COLUMN shipping_expense NUMERIC(10,2)
+ADD COLUMN IF NOT EXISTS shipping_expense NUMERIC(10,2)
 NOT NULL DEFAULT 0.00;
 
 -- ============================================================
@@ -110,7 +113,7 @@ NOT NULL DEFAULT 0.00;
 -- ============================================================
 
 ALTER TABLE sales
-ADD COLUMN state VARCHAR(50);
+ADD COLUMN IF NOT EXISTS state VARCHAR(50);
 
 -- ============================================================
 -- 6. COUNTY
@@ -130,7 +133,7 @@ ADD COLUMN state VARCHAR(50);
 -- ============================================================
 
 ALTER TABLE sales
-ADD COLUMN county VARCHAR(100);
+ADD COLUMN IF NOT EXISTS county VARCHAR(100);
 
 -- ============================================================
 -- CHECK RESULT

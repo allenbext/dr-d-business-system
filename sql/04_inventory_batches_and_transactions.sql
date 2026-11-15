@@ -26,15 +26,17 @@
 -- - Why did inventory decrease?
 -- - Was inventory used for a sale, sample, donation, etc.?
 --
--- IMPORTANT:
--- This script should normally be run only once.
+-- Safe to run more than once:
+--   - tables and indexes are created only when they are missing;
+--   - the opening balance is recorded only for a product that
+--     has no inventory movements yet.
 -- ============================================================
 
 -- ============================================================
 -- 1. CREATE INVENTORY_BATCHES TABLE
 -- ============================================================
 
-CREATE TABLE inventory_batches (
+CREATE TABLE IF NOT EXISTS inventory_batches (
 
     -- Unique internal PostgreSQL ID for the batch.
     batch_id SERIAL PRIMARY KEY,
@@ -88,7 +90,7 @@ CREATE TABLE inventory_batches (
 -- 2. CREATE INVENTORY_TRANSACTIONS TABLE
 -- ============================================================
 
-CREATE TABLE inventory_transactions (
+CREATE TABLE IF NOT EXISTS inventory_transactions (
 
     -- Unique ID for this inventory movement.
     transaction_id SERIAL PRIMARY KEY,
@@ -156,17 +158,17 @@ CREATE TABLE inventory_transactions (
 
 -- Helps us quickly find inventory history
 -- for a specific product.
-CREATE INDEX idx_inventory_transactions_product
+CREATE INDEX IF NOT EXISTS idx_inventory_transactions_product
 ON inventory_transactions(product_id);
 
 -- Helps us quickly find inventory history
 -- by transaction date.
-CREATE INDEX idx_inventory_transactions_date
+CREATE INDEX IF NOT EXISTS idx_inventory_transactions_date
 ON inventory_transactions(transaction_date);
 
 -- Helps us find transactions connected
 -- to a particular batch.
-CREATE INDEX idx_inventory_transactions_batch
+CREATE INDEX IF NOT EXISTS idx_inventory_transactions_batch
 ON inventory_transactions(batch_id);
 
 -- ============================================================
@@ -209,7 +211,16 @@ SELECT
     current_quantity,
     'Opening balance created when inventory transaction tracking was introduced.'
 FROM inventory
-WHERE current_quantity <> 0;
+WHERE current_quantity <> 0
+
+  -- Only for a product without ANY inventory movement.
+  -- When the script is run again, the audit trail already
+  -- exists, so no second opening balance is created.
+  AND NOT EXISTS (
+      SELECT 1
+      FROM inventory_transactions AS it
+      WHERE it.product_id = inventory.product_id
+  );
 
 -- ============================================================
 -- 5. CHECK INVENTORY BATCH TABLE

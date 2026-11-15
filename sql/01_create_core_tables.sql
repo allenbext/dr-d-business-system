@@ -7,6 +7,12 @@
 --   2. Sales
 --   3. Items inside each sale
 --   4. Current inventory
+--
+-- Safe to run more than once:
+--   - CREATE TABLE IF NOT EXISTS skips a table that already exists;
+--   - the two products and their starting inventory are added
+--     only when they are missing.
+-- Existing data is never changed.
 -- ============================================================
 
 -- ============================================================
@@ -17,7 +23,7 @@
 --   - Slobberin' Sauce
 -- ============================================================
 
-CREATE TABLE products (
+CREATE TABLE IF NOT EXISTS products (
     -- Unique ID for each product.
     -- SERIAL automatically generates values 1, 2, 3, ...
     -- PRIMARY KEY means each product_id must be unique.
@@ -58,7 +64,7 @@ CREATE TABLE products (
 -- They will be stored in the sale_items table.
 -- ============================================================
 
-CREATE TABLE sales (
+CREATE TABLE IF NOT EXISTS sales (
     -- Unique ID for each sale.
     -- PostgreSQL generates this automatically.
     sale_id SERIAL PRIMARY KEY,
@@ -100,7 +106,7 @@ CREATE TABLE sales (
 -- we store one row per product sold.
 -- ============================================================
 
-CREATE TABLE sale_items (
+CREATE TABLE IF NOT EXISTS sale_items (
 
     -- Unique ID for each line item.
     -- Example:
@@ -179,7 +185,7 @@ CREATE TABLE sale_items (
 -- Python will reduce these values automatically.
 -- ============================================================
 
-CREATE TABLE inventory (
+CREATE TABLE IF NOT EXISTS inventory (
     -- product_id is also the PRIMARY KEY here.
     -- That means each product can have only one
     -- current inventory record.
@@ -209,21 +215,43 @@ CREATE TABLE inventory (
 -- Now we add the two sauce products.
 -- ============================================================
 
+-- The products are added only when the products table is EMPTY.
+--
+-- On a new database this creates:
+--   product_id 1 = Dr. D's Original Sauce
+--   product_id 2 = Slobberin' Sauce
+--
+-- When the script is run again, the table is not empty,
+-- so nothing is inserted and no duplicates are created.
+
 INSERT INTO products (
     product_name,
     unit_cost,
     scholarship_rate
 )
-VALUES
-    -- Original Sauce:
-    -- Unit cost = $3.00
-    -- No NC State scholarship contribution
-    ('Dr. D''s Original Sauce', 3.00, 0.00),
+SELECT
+    new_product.product_name,
+    new_product.unit_cost,
+    new_product.scholarship_rate
 
-    -- Slobberin' Sauce:
-    -- Unit cost = $3.00
-    -- 16% scholarship contribution
-    ('Slobberin'' Sauce', 3.00, 0.16);
+FROM (
+    VALUES
+        -- Original Sauce:
+        -- Unit cost = $3.00
+        -- No NC State scholarship contribution
+        ('Dr. D''s Original Sauce', 3.00, 0.00),
+
+        -- Slobberin' Sauce:
+        -- Unit cost = $3.00
+        -- 16% scholarship contribution
+        ('Slobberin'' Sauce', 3.00, 0.16)
+
+) AS new_product (product_name, unit_cost, scholarship_rate)
+
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM products
+);
 
 -- ============================================================
 -- INSERT TEST INVENTORY
@@ -232,16 +260,24 @@ VALUES
 -- Later we can replace these values with real inventory.
 -- ============================================================
 
+-- One inventory row is created for every product that does
+-- not have one yet.
+--
+-- ON CONFLICT (product_id) DO NOTHING means:
+-- if the product already has an inventory row, leave it as it is.
+-- A current balance is therefore never reset to 100.
+
 INSERT INTO inventory (
     product_id,
     current_quantity
 )
-VALUES
-    -- product_id 1 = Original Sauce
-    (1, 100),
+SELECT
+    product_id,
+    100
 
-    -- product_id 2 = Slobberin' Sauce
-    (2, 100);
+FROM products
+
+ON CONFLICT (product_id) DO NOTHING;
 
 -- ============================================================
 -- TEST QUERIES

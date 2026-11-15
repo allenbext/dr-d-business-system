@@ -16,11 +16,25 @@ named `dr_d_business`.
 | 09 | `09_sale_price_per_jar.sql` | Makes `sale_items.sale_price` the average price per jar in every row. |
 | 10 | `10_reporting_views_and_constraints.sql` | Creates the views `v_sale_financials` and `v_scholarship_lines`; adds CHECK constraints for sales channel, payment method and inventory movement type. |
 
-## Which scripts can be run again
+## Running the scripts again
 
-- **06** can be run at any time to reset the demonstration data. Run it again shortly before a presentation so the dates line up with the current week.
-- **07, 08, 09 and 10** are safe to run more than once.
-- **01 – 05** create tables and are meant to be run once on an empty database.
+Every script can be run more than once without an error.
+
+- **01, 03, 04, 05** create tables, columns and indexes only when they
+  are missing (`IF NOT EXISTS`). The two products, their inventory rows
+  and the 12 seasonal settings are inserted only when they are missing.
+  Existing data is not changed.
+- **06** removes all transactions and reloads the demonstration data.
+  Run it again shortly before a presentation so the dates line up with
+  the current week.
+- **07, 08, 09, 10** only add what is missing.
+- **02** is a learning script. Each run records one more test sale and
+  lowers the inventory by one jar per product without an audit record.
+  Do not run it by itself on a database that is in use. Script 06
+  removes the test sale again.
+
+Running the complete set 01 – 10 again on an existing database ends in
+the same state as a new installation.
 
 ## Check after setup
 

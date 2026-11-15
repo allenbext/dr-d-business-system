@@ -11,8 +11,9 @@
 -- This supports Project Function 3:
 -- Seasonal Demand Forecasting & Accuracy Tracking.
 --
--- IMPORTANT:
--- This script should normally be executed only once.
+-- Safe to run more than once:
+--   - tables and indexes are created only when they are missing;
+--   - a month that already has a seasonal setting keeps it.
 -- ============================================================
 
 -- ============================================================
@@ -43,7 +44,7 @@
 -- through the Forecast page in Streamlit.
 -- ============================================================
 
-CREATE TABLE forecast_seasonality (
+CREATE TABLE IF NOT EXISTS forecast_seasonality (
 
     -- Unique database ID.
     seasonality_id SERIAL PRIMARY KEY,
@@ -129,7 +130,7 @@ CREATE TABLE forecast_seasonality (
 -- This is the "Forecast vs Actual" requirement.
 -- ============================================================
 
-CREATE TABLE forecasts (
+CREATE TABLE IF NOT EXISTS forecasts (
 
     -- Unique forecast ID.
     forecast_id SERIAL PRIMARY KEY,
@@ -277,19 +278,19 @@ CREATE TABLE forecasts (
 -- ============================================================
 
 -- Search forecasts by product.
-CREATE INDEX idx_forecasts_product
+CREATE INDEX IF NOT EXISTS idx_forecasts_product
 ON forecasts(product_id);
 
 -- Search forecasts by week.
-CREATE INDEX idx_forecasts_week
+CREATE INDEX IF NOT EXISTS idx_forecasts_week
 ON forecasts(forecast_week);
 
 -- Search forecasts by region.
-CREATE INDEX idx_forecasts_region
+CREATE INDEX IF NOT EXISTS idx_forecasts_region
 ON forecasts(sales_region);
 
 -- Search forecasts by sales channel.
-CREATE INDEX idx_forecasts_channel
+CREATE INDEX IF NOT EXISTS idx_forecasts_channel
 ON forecasts(sales_channel);
 
 
@@ -413,7 +414,12 @@ VALUES
         'HIGH',
         1.200,
         'Prototype seasonal assumption.'
-    );
+    )
+
+-- month_number is UNIQUE. If a month already has a setting
+-- (for example one that was edited in the application),
+-- that setting is kept and the default is not inserted.
+ON CONFLICT (month_number) DO NOTHING;
 
 
 -- ============================================================
