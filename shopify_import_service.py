@@ -525,18 +525,26 @@ def import_shopify_order(
 
 
     # --------------------------------------------------------
-    # Payment processing fees and actual Shopify shipping-label
-    # expense are not currently included in our basic order
-    # query.
-    #
-    # They therefore default to zero until we add the separate
-    # Shopify transaction / shipping expense retrieval layer.
+    # Payment processing fee:
+    # taken from the Shopify Payments transactions of the order
+    # (see sum_transaction_fees in shopify_service.py).
+    # It is 0.00 when the order was paid through another
+    # gateway, because Shopify does not know that fee.
     # --------------------------------------------------------
 
-    shopify_fee = Decimal(
-        "0.00"
+    shopify_fee = money(
+        preview.get(
+            "shopify_fee"
+        )
+        or "0.00"
     )
 
+
+    # --------------------------------------------------------
+    # The cost of the shipping label is still not available
+    # per order. Labels bought in Shopify are charged on the
+    # Shopify bill for the period, not on the order.
+    # --------------------------------------------------------
 
     shipping_expense = Decimal(
         "0.00"

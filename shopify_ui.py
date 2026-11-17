@@ -282,7 +282,7 @@ def render_shopify_page():
 
         preview = get_demo_shopify_preview()
 
-        demo1, demo2, demo3, demo4 = st.columns(4)
+        demo1, demo2, demo3, demo4, demo5 = st.columns(5)
 
         with demo1:
 
@@ -308,9 +308,23 @@ def render_shopify_page():
         with demo4:
 
             st.metric(
+                "Shopify Fee",
+                format_currency(preview["shopify_fee"])
+            )
+
+        with demo5:
+
+            st.metric(
                 "Scholarship",
                 format_currency(preview["total_scholarship"])
             )
+
+        st.caption(
+            "The Shopify fee is read from the order's Shopify "
+            "Payments transaction, so it no longer has to be looked "
+            "up by hand. Orders paid through another payment provider "
+            "have no fee in Shopify and show $0.00."
+        )
 
         item_rows = []
 

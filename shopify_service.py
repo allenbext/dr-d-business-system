@@ -23,6 +23,7 @@ to be completed before Dr. D provides Shopify API access.
 """
 
 import os
+from decimal import Decimal
 from datetime import datetime
 
 import requests
@@ -463,6 +464,122 @@ def test_shopify_connection():
 
 
 # ============================================================
+# PAYMENT PROCESSING FEE
+# ============================================================
+
+# Transaction kinds that move money FROM the customer TO the
+# store. A refund also has a transaction, but it is not a fee
+# charged on the sale.
+FEE_TRANSACTION_KINDS = {
+    "SALE",
+    "CAPTURE"
+}
+
+
+def sum_transaction_fees(
+    transactions
+):
+    """
+    Add up the payment processing fees of one Shopify order.
+
+    Why this is needed:
+    The Shopify order does NOT contain the card processing fee.
+    Shopify Payments stores the fee on each payment transaction
+    of the order (OrderTransaction.fees). Dr. D used to look up
+    this number by hand for every order.
+
+    Rules:
+    - Only successful SALE and CAPTURE transactions count.
+    - Every fee on such a transaction is added.
+    - Fees exist only for Shopify Payments. An order paid
+      through another gateway (for example PayPal) has no fee
+      in Shopify; the result is then 0.00 with fee_found False,
+      so the user knows the fee must come from somewhere else.
+
+    Returns:
+        {
+            "shopify_fee": "0.58",    text, like other amounts
+            "fee_found":   True
+        }
+    """
+
+    total_fee = Decimal(
+        "0.00"
+    )
+
+
+    fee_found = False
+
+
+    for transaction in (
+        transactions
+        or []
+    ):
+
+        if transaction.get(
+            "kind"
+        ) not in FEE_TRANSACTION_KINDS:
+
+            continue
+
+
+        if transaction.get(
+            "status"
+        ) != "SUCCESS":
+
+            continue
+
+
+        for fee in (
+            transaction.get(
+                "fees"
+            )
+            or []
+        ):
+
+            amount = (
+                (
+                    fee.get(
+                        "amount"
+                    )
+                    or {}
+                ).get(
+                    "amount"
+                )
+            )
+
+
+            if amount is None:
+
+                continue
+
+
+            total_fee += Decimal(
+                str(
+                    amount
+                )
+            )
+
+
+            fee_found = True
+
+
+    return {
+        "shopify_fee":
+            str(
+                total_fee.quantize(
+                    Decimal(
+                        "0.01"
+                    )
+                )
+            ),
+
+        "fee_found":
+            fee_found
+    }
+
+
+# ============================================================
 # RECENT ORDERS QUERY
 # ============================================================
 
@@ -527,6 +644,29 @@ def get_recent_shopify_orders(
                             provinceCode
                             city
                             zip
+                        }
+
+                        app {
+                            name
+                        }
+
+                        transactions(
+                            first: 20
+                        ) {
+
+                            kind
+
+                            status
+
+                            gateway
+
+                            fees {
+
+                                amount {
+                                    amount
+                                    currencyCode
+                                }
+                            }
                         }
 
                         lineItems(
@@ -615,6 +755,17 @@ def get_recent_shopify_orders(
             edge[
                 "node"
             ]
+        )
+
+
+        # The payment processing fee is not part of the order
+        # itself. It is stored on the payment transactions.
+        fee_summary = (
+            sum_transaction_fees(
+                node.get(
+                    "transactions"
+                )
+            )
         )
 
 
@@ -818,6 +969,29 @@ def get_recent_shopify_orders(
                         else None
                     ),
 
+                "order_source":
+                    (
+                        node[
+                            "app"
+                        ].get(
+                            "name"
+                        )
+                        if node.get(
+                            "app"
+                        )
+                        else None
+                    ),
+
+                "shopify_fee":
+                    fee_summary[
+                        "shopify_fee"
+                    ],
+
+                "fee_found":
+                    fee_summary[
+                        "fee_found"
+                    ],
+
                 "line_items":
                     line_items
             }
@@ -893,6 +1067,17 @@ def get_demo_shopify_order():
 
         "postal_code":
             "27607",
+
+        "order_source":
+            "Online Store",
+
+        # Demo value. A real order takes the fee from its
+        # Shopify Payments transaction.
+        "shopify_fee":
+            "1.36",
+
+        "fee_found":
+            True,
 
         "line_items": [
             {

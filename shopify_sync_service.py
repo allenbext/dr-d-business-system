@@ -1315,6 +1315,29 @@ def build_shopify_order_preview(
                 )
             ),
 
+        # Payment processing fee from the Shopify Payments
+        # transactions of the order (0.00 if none was found).
+        "shopify_fee":
+            to_decimal(
+                order.get(
+                    "shopify_fee"
+                )
+            ),
+
+        "fee_found":
+            bool(
+                order.get(
+                    "fee_found"
+                )
+            ),
+
+        # Where the order was created, for example
+        # "Online Store" or "Point of Sale".
+        "order_source":
+            order.get(
+                "order_source"
+            ),
+
         "state":
             order.get(
                 "state"
