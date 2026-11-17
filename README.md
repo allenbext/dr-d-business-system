@@ -1,7 +1,7 @@
 # Dr. D's Business Management System
 
-ISE 519 — Database Applications in Industrial & Systems Engineering
-Project 2 · Team 5: Alena Bobneva, Aniket Pawar, Mahesh Ghodake
+ISE 519 Project — Database Applications in Industrial & Systems Engineering
+Team 5: Alena Bobneva, Aniket Pawar, Mahesh Ghodake
 
 A PostgreSQL + Python + Streamlit prototype that replaces the manual
 spreadsheet used to run Dr. D's Original Barbeque Sauce and
@@ -105,7 +105,7 @@ db.py                       PostgreSQL connection (reads .env)
 .env.example                Template for the local .env file
 .streamlit/config.toml      Theme and toolbar settings
 requirements.txt            Python packages
-sql/                        Database scripts 01 - 10 (see sql/README.md)
+sql/                        Database scripts 01 - 11 (see sql/README.md)
 ```
 
 
@@ -179,7 +179,7 @@ tested with Python 3.13, PostgreSQL 16 and Streamlit 1.67.
 
 3. Copy `.env.example` to `.env` and enter the PostgreSQL user name and password. The `.env` file is ignored by Git and must never be committed.
 
-4. Run the scripts in the `sql/` folder in numerical order, 01 through 10 (see `sql/README.md`).
+4. Run the scripts in the `sql/` folder in numerical order, 01 through 11 (see `sql/README.md`).
 
 5. Start the application from the project folder:
 
@@ -193,6 +193,10 @@ tested with Python 3.13, PostgreSQL 16 and Streamlit 1.67.
 `sql/06_load_compact_demo_dataset.sql` removes all transactions and loads a small, internally consistent dataset. **All dates are relative to the day the script is run**, so the Dashboard, the forecast history and the completed forecast always line up with "today".
 
 Run the script again shortly before a demonstration (in the same week). It can be run at any time after the other scripts.
+
+`sql/11_load_volume_dataset.sql` loads the large dataset instead: two years of simulated history with about 6,000 sales and about 19,000 records in all tables (Shopify orders one by one, Saturday market summaries, wholesale deliveries, direct sales, samples and donations, production batches). It keeps the same control numbers: the scholarship report month has 4 jars and $5.92, the completed forecast is 120 vs 110, and the next-week forecast is 117. The script that is run last decides which dataset is in the database. The table below describes the compact dataset; inventory and channel totals are different in the large one.
+
+All of this data is simulated. It is not Dr. D's real sales history.
 
 After loading:
 

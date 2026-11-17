@@ -48,6 +48,7 @@ PostgreSQL remains the system of record.
 Excel workbooks are reporting copies only.
 """
 
+from copy import copy
 from datetime import date
 from io import BytesIO
 
@@ -248,70 +249,60 @@ def format_standard_table(
 
 
     # --------------------------------------------------------
-    # CURRENCY
+    # NUMBER FORMAT OF EACH COLUMN
+    #
+    # column number -> Excel number format
     # --------------------------------------------------------
+
+    column_formats = {}
+
 
     for header_name in currency_headers:
 
-        if header_name not in header_lookup:
+        if header_name in header_lookup:
 
-            continue
+            column_formats[
+                header_lookup[header_name]
+            ] = "$#,##0.00"
 
-
-        column_number = (
-            header_lookup[
-                header_name
-            ]
-        )
-
-
-        for row_number in range(
-            header_row + 1,
-            worksheet.max_row + 1
-        ):
-
-            worksheet.cell(
-                row=row_number,
-                column=column_number
-            ).number_format = (
-                "$#,##0.00"
-            )
-
-
-    # --------------------------------------------------------
-    # PERCENTAGE
-    # --------------------------------------------------------
 
     for header_name in percent_headers:
 
-        if header_name not in header_lookup:
+        if header_name in header_lookup:
 
-            continue
-
-
-        column_number = (
-            header_lookup[
-                header_name
-            ]
-        )
-
-
-        for row_number in range(
-            header_row + 1,
-            worksheet.max_row + 1
-        ):
-
-            worksheet.cell(
-                row=row_number,
-                column=column_number
-            ).number_format = (
-                "0.00%"
-            )
+            column_formats[
+                header_lookup[header_name]
+            ] = "0.00%"
 
 
     # --------------------------------------------------------
-    # BODY BORDERS
+    # BODY: BORDERS, ALIGNMENT, NUMBER FORMATS
+    #
+    # Performance note:
+    #
+    # Setting cell.border, cell.alignment and cell.number_format
+    # is slow in openpyxl, because every assignment compares the
+    # new style with all styles already in the workbook.
+    # With thousands of rows this took most of the time needed
+    # to build the report.
+    #
+    # Cells of the same column that start with the same style
+    # also end with the same style. So the slow assignments are
+    # done only for the FIRST such cell. Its finished style is
+    # remembered, and every later cell receives a copy of it,
+    # which is fast.
+    #
+    # The workbook that is produced is exactly the same.
     # --------------------------------------------------------
+
+    body_alignment = Alignment(
+        vertical="top"
+    )
+
+
+    # (column number, style before formatting) -> finished style
+    finished_styles = {}
+
 
     for row in worksheet.iter_rows(
         min_row=header_row + 1
@@ -319,13 +310,41 @@ def format_standard_table(
 
         for cell in row:
 
+            # A cell that has no formatting yet has no style.
+            style_key = (
+                cell.column,
+                tuple(cell._style) if cell.has_style else ()
+            )
+
+
+            if style_key in finished_styles:
+
+                cell._style = copy(
+                    finished_styles[style_key]
+                )
+
+                continue
+
+
+            if cell.column in column_formats:
+
+                cell.number_format = (
+                    column_formats[cell.column]
+                )
+
+
             cell.border = (
                 border
             )
 
 
-            cell.alignment = Alignment(
-                vertical="top"
+            cell.alignment = (
+                body_alignment
+            )
+
+
+            finished_styles[style_key] = copy(
+                cell._style
             )
 
 

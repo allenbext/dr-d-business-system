@@ -68,11 +68,14 @@ from ui_helpers import (
 # sql/10_reporting_views_and_constraints.sql
 # ============================================================
 
+# "Direct" is first because it is the channel entered by hand
+# most often. Shopify orders normally arrive through the
+# Shopify synchronization, so "Shopify" is last.
 SALES_CHANNELS = [
-    "Shopify",
+    "Direct",
     "Farmers Market",
     "Wholesale",
-    "Direct"
+    "Shopify"
 ]
 
 PAYMENT_METHODS = [

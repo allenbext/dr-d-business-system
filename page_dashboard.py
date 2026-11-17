@@ -50,6 +50,16 @@ from ui_helpers import (
 # NAVIGATION CALLBACK
 # ============================================================
 
+def _prepare_business_report(data_version):
+    """
+    Remember that the user asked for the Excel report of the
+    current data version. The Dashboard then builds the report
+    and shows the download button.
+    """
+
+    st.session_state["dashboard_report_version"] = data_version
+
+
 def _go_to_record_sale():
     """
     Open the Record Sale page.
@@ -122,18 +132,53 @@ def render_dashboard():
 
         with header_export:
 
-            # The workbook is rebuilt only when the data changed.
-            st.download_button(
-                "Export Business Report",
-                data=cached_business_report(data_version, today),
-                file_name=(
-                    "Dr_D_Business_Report_"
-                    f"{today.strftime('%Y-%m-%d')}.xlsx"
-                ),
-                mime=XLSX_MIME,
-                key="dashboard_export",
-                **STRETCH
+            # The Excel workbook contains every sale, so building
+            # it takes a few seconds. It is therefore NOT built
+            # while the Dashboard is drawn. It is built only when
+            # the user asks for it:
+            #
+            #   step 1  "Prepare Business Report"  -> builds the file
+            #   step 2  "Download Business Report" -> saves the file
+            #
+            # The prepared file belongs to one data version. After
+            # a new sale or inventory movement the button goes
+            # back to step 1, so an outdated report is never
+            # downloaded.
+            report_is_ready = (
+                st.session_state.get("dashboard_report_version")
+                == data_version
             )
+
+            if report_is_ready:
+
+                with st.spinner("Preparing report..."):
+
+                    report_bytes = cached_business_report(
+                        data_version,
+                        today
+                    )
+
+                st.download_button(
+                    "Download Business Report",
+                    data=report_bytes,
+                    file_name=(
+                        "Dr_D_Business_Report_"
+                        f"{today.strftime('%Y-%m-%d')}.xlsx"
+                    ),
+                    mime=XLSX_MIME,
+                    key="dashboard_export",
+                    **STRETCH
+                )
+
+            else:
+
+                st.button(
+                    "Prepare Business Report",
+                    on_click=_prepare_business_report,
+                    args=(data_version,),
+                    key="dashboard_prepare_report",
+                    **STRETCH
+                )
 
         # ====================================================
         # THIS MONTH
