@@ -34,13 +34,13 @@ from shopify_sync_service import (
     deactivate_shopify_product_mapping,
     get_demo_shopify_preview,
     get_last_successful_shopify_sync,
-    get_local_products,
     get_shopify_mapping_rows,
     get_shopify_product_mappings,
     get_shopify_sync_history,
     reactivate_shopify_product_mapping,
     run_shopify_sync_check,
-    save_shopify_product_mapping
+    save_shopify_product_mapping,
+    STORE_PRODUCT_CONTENTS
 )
 
 from ui_helpers import (
@@ -335,7 +335,7 @@ def render_shopify_page():
             item_rows.append(
                 {
                     "Shopify Product": item["shopify_product"],
-                    "Local Product": item["local_product"],
+                    "Sauce": item["local_product"],
                     "Jars": item["quantity"],
                     "Revenue": float(item["allocated_revenue"]),
                     "Scholarship Rate": (
@@ -388,18 +388,13 @@ def render_shopify_page():
         with st.expander("Connect Shopify products to local products"):
 
             st.caption(
-                "Each Shopify product variant must be connected to "
-                "Original Sauce or Slobberin' Sauce before its "
-                "orders can be imported. The Variant ID comes from "
-                "the Shopify store."
+                "Each Shopify product must be connected before its "
+                "orders can be imported. The connection says how many "
+                "jars of each sauce ONE unit holds, so a 2-jar pack "
+                "lowers inventory by 2 and a Combo is split $9 / $9 "
+                "between the sauces. The Variant ID comes from the "
+                "Shopify store."
             )
-
-            local_products = get_local_products()
-
-            product_name_to_id = {
-                product["product_name"]: product_id
-                for product_id, product in local_products.items()
-            }
 
             with st.form("shopify_mapping_form", clear_on_submit=True):
 
@@ -414,9 +409,10 @@ def render_shopify_page():
 
                 with mapping_col2:
 
-                    selected_local_product = st.selectbox(
-                        "Local Product",
-                        list(product_name_to_id.keys())
+                    # The five products of Dr. D's store.
+                    selected_contents = st.selectbox(
+                        "What one unit holds",
+                        list(STORE_PRODUCT_CONTENTS.keys())
                     )
 
                 shopify_product_name = st.text_input(
@@ -433,16 +429,19 @@ def render_shopify_page():
 
                 try:
 
+                    original_jars, slobberin_jars = (
+                        STORE_PRODUCT_CONTENTS[selected_contents]
+                    )
+
                     mapping_result = save_shopify_product_mapping(
                         shopify_variant_id=variant_id,
-                        product_id=product_name_to_id[
-                            selected_local_product
-                        ],
+                        original_jars=original_jars,
+                        slobberin_jars=slobberin_jars,
                         shopify_product_name=shopify_product_name
                     )
 
                     st.success(
-                        "Shopify variant connected to "
+                        "Shopify variant connected: one unit = "
                         f"{mapping_result['local_product']}."
                     )
 
@@ -479,7 +478,7 @@ def render_shopify_page():
                         columns={
                             "shopify_variant_id": "Shopify Variant ID",
                             "shopify_product_name": "Shopify Product",
-                            "local_product": "Local Product",
+                            "local_product": "One Unit Holds",
                             "active": "Active",
                             "updated_at": "Last Updated"
                         }

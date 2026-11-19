@@ -1050,14 +1050,18 @@ def get_demo_shopify_order():
         "fulfillment_status":
             "FULFILLED",
 
+        # One Combo ($18) and one Slobberin' 2-pack ($18):
+        # 1 Original + 3 Slobberin' jars.
+        # Tax, shipping and fee are taken from a similar
+        # four-jar order in Dr. D's October spreadsheet.
         "product_revenue":
-            "28.00",
+            "36.00",
 
         "tax_collected":
-            "0.56",
+            "1.04",
 
         "shipping_revenue":
-            "8.00",
+            "16.00",
 
         "state":
             "NC",
@@ -1074,7 +1078,7 @@ def get_demo_shopify_order():
         # Demo value. A real order takes the fee from its
         # Shopify Payments transaction.
         "shopify_fee":
-            "1.36",
+            "1.84",
 
         "fee_found":
             True,
@@ -1085,25 +1089,25 @@ def get_demo_shopify_order():
                     "DEMO-LINE-1",
 
                 "name":
-                    "Dr. D's Original Sauce",
+                    "Dr. D's Original Barbeque Sauce AND Slobberin' Sauce Combo",
 
                 "quantity":
                     1,
 
                 "shopify_variant_id":
-                    "DEMO-ORIGINAL-VARIANT",
+                    "DEMO-COMBO-VARIANT",
 
                 "variant_title":
                     "Default Title",
 
                 "product_title":
-                    "Dr. D's Original Sauce",
+                    "Original AND Slobberin' Combo (2 jars)",
 
                 "original_unit_price":
-                    "10.00",
+                    "18.00",
 
                 "discounted_total":
-                    "10.00"
+                    "18.00"
             },
 
             {
@@ -1111,22 +1115,22 @@ def get_demo_shopify_order():
                     "DEMO-LINE-2",
 
                 "name":
-                    "Slobberin' Sauce",
+                    "Slobberin' Sauce (2 - 16 ounce jars)",
 
                 "quantity":
-                    2,
+                    1,
 
                 "shopify_variant_id":
-                    "DEMO-SLOBBERIN-VARIANT",
+                    "DEMO-SLOBBERIN-2-JARS-VARIANT",
 
                 "variant_title":
                     "Default Title",
 
                 "product_title":
-                    "Slobberin' Sauce",
+                    "Slobberin' Sauce (2 jars)",
 
                 "original_unit_price":
-                    "10.00",
+                    "18.00",
 
                 "discounted_total":
                     "18.00"

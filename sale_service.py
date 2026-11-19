@@ -20,11 +20,20 @@ Current functionality:
 
 Important rules:
 
-Revenue allocation
-    Both sauces have the same price, so revenue is allocated
-    by jar count. The Slobberin' Sauce share is rounded to
-    cents first. The Original Sauce share is the remainder.
-    Therefore the two shares ALWAYS add up to the sale total.
+Revenue allocation (sales entered on the Record Sale page)
+    Retail prices are $10 for one jar and $18 for two.
+    - Even jar count: every jar is worth $9.
+    - Odd jar count: one jar is the $10 single jar. It is given
+      to the sauce bought in the higher quantity; the other
+      jars are worth $9.
+    - Wholesale: revenue is shared by jar count.
+    The entered amount is shared in proportion to these
+    weights, so discounts are shared fairly too.
+    The Slobberin' Sauce share is rounded to cents first. The
+    Original Sauce share is the remainder. Therefore the two
+    shares ALWAYS add up to the sale total.
+    Shopify orders do not use this rule: they are split by the
+    store product actually bought (see shopify_sync_service.py).
 
 Scholarship
     Slobberin' allocated revenue x scholarship rate,
@@ -156,20 +165,54 @@ def calculate_scholarship(
 # SUGGESTED REVENUE
 # ============================================================
 
+def _retail_jar_weights(original_quantity, slobberin_quantity):
+    """Return revenue weights using $9 pairs and one $10 odd jar."""
+
+    original_quantity = int(original_quantity)
+    slobberin_quantity = int(slobberin_quantity)
+
+    if original_quantity < 0 or slobberin_quantity < 0:
+        raise ValueError("Jar quantities cannot be negative.")
+
+    if (original_quantity + slobberin_quantity) % 2 == 0:
+        return (
+            Decimal("9.00") * original_quantity,
+            Decimal("9.00") * slobberin_quantity
+        )
+
+    if original_quantity > slobberin_quantity:
+        return (
+            Decimal("9.00") * (original_quantity - 1)
+            + RETAIL_SINGLE_PRICE,
+            Decimal("9.00") * slobberin_quantity
+        )
+
+    if slobberin_quantity > original_quantity:
+        return (
+            Decimal("9.00") * original_quantity,
+            Decimal("9.00") * (slobberin_quantity - 1)
+            + RETAIL_SINGLE_PRICE
+        )
+
+    # An odd total cannot occur when both quantities are equal.
+    return (
+        Decimal("9.00") * original_quantity,
+        Decimal("9.00") * slobberin_quantity
+    )
+
+
 def suggest_product_revenue(
     total_quantity,
-    sales_channel
+    sales_channel,
+    original_quantity=None,
+    slobberin_quantity=None
 ):
     """
     Suggest the expected product revenue for a sale.
 
     Retail (Shopify, Farmers Market, Direct):
-        every two jars = $18, a remaining single jar = $10
-
-        Examples:
-            1 jar  -> $10
-            2 jars -> $18
-            3 jars -> $28
+        every complete pair is $18; if the jar count is odd, the
+        extra $10 jar belongs to the sauce purchased in the higher quantity.
 
     Wholesale:
         $6 per jar
@@ -181,22 +224,25 @@ def suggest_product_revenue(
     total_quantity = int(total_quantity)
 
     if total_quantity <= 0:
-
         return Decimal("0.00")
 
     if sales_channel == "Wholesale":
+        return money(WHOLESALE_PRICE * total_quantity)
 
+    if original_quantity is None or slobberin_quantity is None:
+        pairs = total_quantity // 2
+        singles = total_quantity % 2
         return money(
-            WHOLESALE_PRICE * total_quantity
+            RETAIL_PAIR_PRICE * pairs
+            + RETAIL_SINGLE_PRICE * singles
         )
 
-    pairs = total_quantity // 2
-    singles = total_quantity % 2
-
-    return money(
-        RETAIL_PAIR_PRICE * pairs
-        + RETAIL_SINGLE_PRICE * singles
+    original_weight, slobberin_weight = _retail_jar_weights(
+        original_quantity,
+        slobberin_quantity
     )
+
+    return money(original_weight + slobberin_weight)
 
 
 # ============================================================
@@ -271,7 +317,8 @@ def _calculate_sale_values(
     shopify_fee,
     shipping_expense,
     original,
-    slobberin
+    slobberin,
+    sales_channel="Direct"
 ):
     """
     Calculate all financial values for one sale.
@@ -313,8 +360,9 @@ def _calculate_sale_values(
     # --------------------------------------------------------
     # REVENUE ALLOCATION
     #
-    # Both sauces have the same price, so revenue is shared
-    # by jar count.
+    # Retail: even jar counts use $9 per jar. An odd jar count
+    # assigns the $10 single jar to the higher-quantity sauce.
+    # Wholesale: revenue is shared by jar count at $6 per jar.
     #
     # Slobberin' share is rounded to cents first because the
     # scholarship is calculated from it.
@@ -335,11 +383,25 @@ def _calculate_sale_values(
         / Decimal(total_quantity)
     )
 
-    slobberin_revenue = money(
-        total_amount
-        * Decimal(slobberin_quantity)
-        / Decimal(total_quantity)
-    )
+    if sales_channel == "Wholesale":
+        original_weight = Decimal(original_quantity)
+        slobberin_weight = Decimal(slobberin_quantity)
+    else:
+        original_weight, slobberin_weight = _retail_jar_weights(
+            original_quantity,
+            slobberin_quantity
+        )
+
+    allocation_total = original_weight + slobberin_weight
+
+    if allocation_total <= 0:
+        slobberin_revenue = money("0.00")
+    else:
+        slobberin_revenue = money(
+            total_amount
+            * slobberin_weight
+            / allocation_total
+        )
 
     original_revenue = (
         total_amount
@@ -457,7 +519,8 @@ def preview_sale(
         shopify_fee=shopify_fee,
         shipping_expense=shipping_expense,
         original=original,
-        slobberin=slobberin
+        slobberin=slobberin,
+        sales_channel=sales_channel
     )
 
     # --------------------------------------------------------
@@ -567,7 +630,8 @@ def _insert_sale(
         shopify_fee=shopify_fee,
         shipping_expense=shipping_expense,
         original=original,
-        slobberin=slobberin
+        slobberin=slobberin,
+        sales_channel=sales_channel
     )
 
     # ========================================================

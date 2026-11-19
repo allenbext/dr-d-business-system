@@ -157,7 +157,9 @@ def _standard_suggestion():
     return float(
         suggest_product_revenue(
             state.std_original + state.std_slobberin,
-            state.std_channel
+            state.std_channel,
+            state.std_original,
+            state.std_slobberin
         )
     )
 

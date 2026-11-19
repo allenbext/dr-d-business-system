@@ -16,6 +16,7 @@ named `dr_d_business`.
 | 09 | `09_sale_price_per_jar.sql` | Makes `sale_items.sale_price` the average price per jar in every row. |
 | 10 | `10_reporting_views_and_constraints.sql` | Creates the views `v_sale_financials` and `v_scholarship_lines`; adds CHECK constraints for sales channel, payment method and inventory movement type. |
 | 11 | `11_load_volume_dataset.sql` | Removes all transactions and loads the large simulated dataset: two years of history, about 19,000 records. All dates are relative to the day the script is run. |
+| 12 | `12_shopify_product_contents.sql` | Stores how many jars of each sauce one Shopify product holds, so a 2-jar pack lowers inventory by 2 and a Combo is split $9 / $9. Run it once after script 07; safe to run again. |
 
 ## Running the scripts again
 
@@ -28,7 +29,7 @@ Every script can be run more than once without an error.
 - **06** removes all transactions and reloads the demonstration data.
   Run it again shortly before a presentation so the dates line up with
   the current week.
-- **07, 08, 09, 10** only add what is missing.
+- **07, 08, 09, 10, 12** only add what is missing.
 - **11** removes all transactions and reloads the large dataset. The
   random numbers use a fixed seed, so two runs on the same day give
   exactly the same data. Run it again shortly before a presentation.
@@ -37,7 +38,7 @@ Every script can be run more than once without an error.
   Do not run it by itself on a database that is in use. Script 06
   removes the test sale again.
 
-Running the complete set 01 – 11 again on an existing database ends in
+Running the complete set 01 – 12 again on an existing database ends in
 the same state as a new installation.
 
 ## Two datasets
@@ -80,3 +81,12 @@ The last queries of script 11 show the record count of every table
 (the total is above 10,000), sales by channel, the inventory balance
 compared with the audit trail, the same scholarship report month
 (4 jars, $5.92) and the same completed forecast (120 vs 110).
+
+## Queries for the presentation
+
+`demo_queries.sql` is not part of the setup. It holds five read-only
+queries for the live part of the presentation: record counts,
+monthly performance from `v_sale_financials`, the scholarship report
+from `v_scholarship_lines`, the inventory control query, and
+`EXPLAIN ANALYZE` of the forecast history query. In DBeaver put the
+cursor inside one query and press Ctrl+Enter.

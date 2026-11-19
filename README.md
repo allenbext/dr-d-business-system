@@ -1,7 +1,7 @@
 # Dr. D's Business Management System
 
-ISE 519 Project — Database Applications in Industrial & Systems Engineering
-Team 5: Alena Bobneva, Aniket Pawar, Mahesh Ghodake
+ISE 519 — Database Applications in Industrial & Systems Engineering
+Project 2 · Team 5: Alena Bobneva, Aniket Pawar, Mahesh Ghodake
 
 A PostgreSQL + Python + Streamlit prototype that replaces the manual
 spreadsheet used to run Dr. D's Original Barbeque Sauce and
@@ -105,7 +105,7 @@ db.py                       PostgreSQL connection (reads .env)
 .env.example                Template for the local .env file
 .streamlit/config.toml      Theme and toolbar settings
 requirements.txt            Python packages
-sql/                        Database scripts 01 - 11 (see sql/README.md)
+sql/                        Database scripts 01 - 12 (see sql/README.md)
 ```
 
 
@@ -141,7 +141,13 @@ Integrity rules enforced by the database:
 
 **Revenue.** `sales.total_amount` is product revenue only. Sales tax is stored separately and is not revenue.
 
-**Revenue allocation.** Both sauces have the same price, so the revenue of a mixed sale is shared by jar count. The Slobberin' share is rounded to cents; the Original share is the remainder, so the two always add up to the sale total.
+**Revenue allocation.** The 16% scholarship depends on how much of a sale belongs to Slobberin' Sauce, so the split matters.
+
+- *Shopify orders* are split exactly, by the store product that was bought. Each Shopify product is connected with its contents (Original 1 jar, Slobberin' 1 jar, Original 2 jars, Slobberin' 2 jars, Combo 1 + 1), so a Combo for $18 gives $9 to each sauce and a Slobberin' 2-pack gives $18 to Slobberin'.
+- *Sales entered by hand* use the retail prices: with an even number of jars every jar is worth $9; with an odd number one jar is the $10 single jar, given to the sauce bought in the higher quantity. Wholesale is shared by jar count.
+- *Farmers market summaries* only have totals, so the same rule is applied to the totals. The result is an estimate; Dr. D cannot know which customer bought which combination.
+
+In every case the Slobberin' share is rounded to cents and the Original share is the remainder, so the two always add up to the sale total.
 
 **Scholarship.** Slobberin' allocated revenue × 16% (rate stored in `products.scholarship_rate`), based on the revenue actually received.
 
@@ -179,7 +185,7 @@ tested with Python 3.13, PostgreSQL 16 and Streamlit 1.67.
 
 3. Copy `.env.example` to `.env` and enter the PostgreSQL user name and password. The `.env` file is ignored by Git and must never be committed.
 
-4. Run the scripts in the `sql/` folder in numerical order, 01 through 11 (see `sql/README.md`).
+4. Run the scripts in the `sql/` folder in numerical order, 01 through 12 (see `sql/README.md`).
 
 5. Start the application from the project folder:
 
@@ -225,7 +231,7 @@ After loading:
 
 ## Shopify integration status
 
-The integration layer is implemented: API client, product mapping, duplicate protection, order preview, synchronization log and a transactional import function. Because the store owner has not provided API credentials, live order import is intentionally switched off and the page demonstrates the workflow with a demo order that is never saved.
+The integration layer is implemented: API client, product connections with the jars each store product holds (so 2-jar packs and the Combo are counted correctly), the Shopify Payments fee for each order, duplicate protection, order preview, synchronization log and a transactional import function. Because the store owner has not provided API credentials, live order import is intentionally switched off and the page demonstrates the workflow with a demo order that is never saved.
 
 To connect a store later, add `SHOPIFY_STORE` and `SHOPIFY_ACCESS_TOKEN` to `.env`.
 

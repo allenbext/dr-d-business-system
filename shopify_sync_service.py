@@ -178,12 +178,16 @@ def get_shopify_product_mappings():
     """
     Return active mappings keyed by Shopify variant ID.
 
-    Example:
+    Each mapping holds the CONTENTS of one unit of the Shopify
+    product (see sql/12_shopify_product_contents.sql).
+
+    Example (the Combo product):
 
     {
         "gid://shopify/ProductVariant/123": {
-            "product_id": 1,
-            "shopify_product_name": "Original Sauce"
+            "original_jars": 1,
+            "slobberin_jars": 1,
+            "shopify_product_name": "Original AND Slobberin' Combo"
         }
     }
     """
@@ -196,7 +200,8 @@ def get_shopify_product_mappings():
                 """
                 SELECT
                     shopify_variant_id,
-                    product_id,
+                    original_jars,
+                    slobberin_jars,
                     shopify_product_name
 
                 FROM shopify_product_map
@@ -221,15 +226,124 @@ def get_shopify_product_mappings():
         mappings[
             row[0]
         ] = {
-            "product_id":
-                row[1],
+            "original_jars":
+                int(
+                    row[1]
+                ),
+
+            "slobberin_jars":
+                int(
+                    row[2]
+                ),
 
             "shopify_product_name":
-                row[2]
+                row[3]
         }
 
 
     return mappings
+
+
+# ============================================================
+# CONTENTS OF A SHOPIFY PRODUCT
+# ============================================================
+
+# The five products of Dr. D's Shopify store and what ONE unit
+# of each holds: (Original jars, Slobberin' jars).
+# The Shopify page offers these as choices when a product is
+# connected.
+STORE_PRODUCT_CONTENTS = {
+    "Dr. D's Original, 1 jar": (1, 0),
+    "Slobberin' Sauce, 1 jar": (0, 1),
+    "Dr. D's Original, 2 jars": (2, 0),
+    "Slobberin' Sauce, 2 jars": (0, 2),
+    "Combo: 1 Original + 1 Slobberin'": (1, 1),
+}
+
+
+def describe_contents(
+    original_jars,
+    slobberin_jars
+):
+    """
+    Describe the contents of one unit in words.
+
+    Examples:
+        (1, 1) -> "1 Original + 1 Slobberin'"
+        (0, 2) -> "2 Slobberin'"
+    """
+
+    parts = []
+
+    if original_jars:
+
+        parts.append(
+            f"{original_jars} Original"
+        )
+
+    if slobberin_jars:
+
+        parts.append(
+            f"{slobberin_jars} Slobberin'"
+        )
+
+    return " + ".join(parts) if parts else "Nothing"
+
+
+def split_line_revenue(
+    line_revenue,
+    original_jars,
+    slobberin_jars
+):
+    """
+    Split the revenue of ONE Shopify line between the sauces.
+
+    The split uses the contents of the product that was actually
+    bought, so it is exact for every product in the store:
+
+        Slobberin' 2-pack, $18 -> $0.00 Original, $18.00 Slobberin'
+        Combo,             $18 -> $9.00 Original,  $9.00 Slobberin'
+        2 x Combo,         $36 -> $18.00 / $18.00
+
+    Inside one product both sauces have the same price, so the
+    line is split by its jars. The Slobberin' share is rounded to
+    cents first (the scholarship is calculated from it); the
+    Original share is the remainder, so the two always add up to
+    the line revenue.
+
+    Returns (original_revenue, slobberin_revenue).
+    """
+
+    line_revenue = to_decimal(
+        line_revenue
+    )
+
+    total_jars = (
+        original_jars
+        + slobberin_jars
+    )
+
+    if total_jars <= 0:
+
+        raise ValueError(
+            "A Shopify product must contain at least one jar."
+        )
+
+    slobberin_revenue = (
+        line_revenue
+        * Decimal(slobberin_jars)
+        / Decimal(total_jars)
+    ).quantize(
+        Decimal("0.01"),
+        rounding=ROUND_HALF_UP
+    )
+
+    original_revenue = (
+        line_revenue
+        - slobberin_revenue
+    )
+
+    return original_revenue, slobberin_revenue
 
 
 # ============================================================
@@ -258,16 +372,13 @@ def get_shopify_mapping_rows(
                         spm.shopify_product_map_id,
                         spm.shopify_variant_id,
                         spm.shopify_product_name,
-                        spm.product_id,
-                        p.product_name,
+                        spm.original_jars,
+                        spm.slobberin_jars,
                         spm.active,
                         spm.created_at,
                         spm.updated_at
 
                     FROM shopify_product_map AS spm
-
-                    JOIN products AS p
-                        ON spm.product_id = p.product_id
 
                     ORDER BY
                         spm.active DESC,
@@ -283,16 +394,13 @@ def get_shopify_mapping_rows(
                         spm.shopify_product_map_id,
                         spm.shopify_variant_id,
                         spm.shopify_product_name,
-                        spm.product_id,
-                        p.product_name,
+                        spm.original_jars,
+                        spm.slobberin_jars,
                         spm.active,
                         spm.created_at,
                         spm.updated_at
 
                     FROM shopify_product_map AS spm
-
-                    JOIN products AS p
-                        ON spm.product_id = p.product_id
 
                     WHERE spm.active = TRUE
 
@@ -323,11 +431,19 @@ def get_shopify_mapping_rows(
                 "shopify_product_name":
                     row[2],
 
-                "product_id":
+                "original_jars":
                     row[3],
 
-                "local_product":
+                "slobberin_jars":
                     row[4],
+
+                # Text shown in the Shopify page, for example
+                # "1 Original + 1 Slobberin'".
+                "local_product":
+                    describe_contents(
+                        row[3],
+                        row[4]
+                    ),
 
                 "active":
                     row[5],
@@ -350,19 +466,31 @@ def get_shopify_mapping_rows(
 
 def save_shopify_product_mapping(
     shopify_variant_id,
-    product_id,
+    original_jars,
+    slobberin_jars,
     shopify_product_name=None
 ):
     """
-    Insert or update a Shopify product mapping.
+    Insert or update a Shopify product connection.
+
+    A connection says what ONE unit of a Shopify product holds:
+
+        original_jars   jars of Dr. D's Original Sauce
+        slobberin_jars  jars of Slobberin' Sauce
+
+    Examples from the store:
+        Slobberin' Sauce (1 jar)   -> 0, 1
+        Original (2 jars)          -> 2, 0
+        Combo                      -> 1, 1
 
     If the Shopify variant ID already exists:
-        - local product is updated
-        - Shopify product name is updated
-        - mapping is reactivated
+        - the contents and the Shopify product name are updated
+        - the connection is reactivated
         - updated_at is refreshed
 
-    This makes mapping maintenance easy from Streamlit.
+    product_id is still filled in when the product holds only
+    one sauce, so older reports that read it keep working.
+    A Combo holds both sauces and has no single product_id.
     """
 
     variant_id = (
@@ -379,16 +507,41 @@ def save_shopify_product_mapping(
         )
 
 
-    local_products = (
-        get_local_products()
+    original_jars = int(
+        original_jars
+    )
+
+    slobberin_jars = int(
+        slobberin_jars
     )
 
 
-    if product_id not in local_products:
+    if original_jars < 0 or slobberin_jars < 0:
 
         raise ValueError(
-            "Selected local product does not exist."
+            "Jar counts cannot be negative."
         )
+
+
+    if original_jars + slobberin_jars == 0:
+
+        raise ValueError(
+            "A Shopify product must contain at least one jar."
+        )
+
+
+    # One sauce only -> that product. Both sauces -> none.
+    if slobberin_jars == 0:
+
+        product_id = 1
+
+    elif original_jars == 0:
+
+        product_id = 2
+
+    else:
+
+        product_id = None
 
 
     clean_product_name = (
@@ -410,11 +563,15 @@ def save_shopify_product_mapping(
                 INSERT INTO shopify_product_map (
                     shopify_variant_id,
                     product_id,
+                    original_jars,
+                    slobberin_jars,
                     shopify_product_name,
                     active
                 )
 
                 VALUES (
+                    %s,
+                    %s,
                     %s,
                     %s,
                     %s,
@@ -428,6 +585,12 @@ def save_shopify_product_mapping(
                 DO UPDATE SET
                     product_id =
                         EXCLUDED.product_id,
+
+                    original_jars =
+                        EXCLUDED.original_jars,
+
+                    slobberin_jars =
+                        EXCLUDED.slobberin_jars,
 
                     shopify_product_name =
                         EXCLUDED.shopify_product_name,
@@ -444,6 +607,8 @@ def save_shopify_product_mapping(
                 (
                     variant_id,
                     product_id,
+                    original_jars,
+                    slobberin_jars,
                     clean_product_name
                 )
             )
@@ -464,15 +629,17 @@ def save_shopify_product_mapping(
         "shopify_variant_id":
             variant_id,
 
-        "product_id":
-            product_id,
+        "original_jars":
+            original_jars,
+
+        "slobberin_jars":
+            slobberin_jars,
 
         "local_product":
-            local_products[
-                product_id
-            ][
-                "product_name"
-            ]
+            describe_contents(
+                original_jars,
+                slobberin_jars
+            )
     }
 
 
@@ -972,22 +1139,28 @@ def build_shopify_order_preview(
     if allow_demo_mapping:
 
         demo_mappings = {
-            "DEMO-ORIGINAL-VARIANT":
+            "DEMO-COMBO-VARIANT":
                 {
-                    "product_id":
+                    "original_jars":
+                        1,
+
+                    "slobberin_jars":
                         1,
 
                     "shopify_product_name":
-                        "Dr. D's Original Sauce"
+                        "Original AND Slobberin' Combo"
                 },
 
-            "DEMO-SLOBBERIN-VARIANT":
+            "DEMO-SLOBBERIN-2-JARS-VARIANT":
                 {
-                    "product_id":
+                    "original_jars":
+                        0,
+
+                    "slobberin_jars":
                         2,
 
                     "shopify_product_name":
-                        "Slobberin' Sauce"
+                        "Slobberin' Sauce (2 jars)"
                 }
         }
 
@@ -1043,7 +1216,9 @@ def build_shopify_order_preview(
             )
 
 
-        quantity = int(
+        # Number of Shopify units on this line
+        # (for example 2 x Combo).
+        units = int(
             line_item.get(
                 "quantity",
                 0
@@ -1061,16 +1236,20 @@ def build_shopify_order_preview(
         )
 
 
-        total_quantity += (
-            quantity
-        )
-
-
         # ----------------------------------------------------
         # UNMAPPED SHOPIFY VARIANT
+        #
+        # The contents are unknown, so the line cannot be
+        # counted in jars. The order cannot be imported until
+        # the product is connected.
         # ----------------------------------------------------
 
         if mapping is None:
+
+            total_quantity += (
+                units
+            )
+
 
             unmapped_items.append(
                 {
@@ -1088,7 +1267,7 @@ def build_shopify_order_preview(
                         ),
 
                     "quantity":
-                        quantity,
+                        units,
 
                     "discounted_total":
                         discounted_total
@@ -1116,7 +1295,7 @@ def build_shopify_order_preview(
                         None,
 
                     "quantity":
-                        quantity,
+                        units,
 
                     "allocated_revenue":
                         discounted_total,
@@ -1128,7 +1307,7 @@ def build_shopify_order_preview(
                         None,
 
                     "inventory_change":
-                        -quantity
+                        -units
                 }
             )
 
@@ -1137,116 +1316,166 @@ def build_shopify_order_preview(
 
 
         # ----------------------------------------------------
-        # LOCAL PRODUCT
+        # CONTENTS OF THIS LINE
+        #
+        # jars = Shopify units x jars in one unit
+        #
+        # Example: 2 x Combo -> 2 Original + 2 Slobberin'
         # ----------------------------------------------------
 
-        product_id = (
-            mapping[
-                "product_id"
+        line_original_jars = (
+            units
+            * mapping[
+                "original_jars"
             ]
         )
 
 
-        local_product = (
-            local_products.get(
-                product_id
+        line_slobberin_jars = (
+            units
+            * mapping[
+                "slobberin_jars"
+            ]
+        )
+
+
+        original_revenue, slobberin_revenue = (
+            split_line_revenue(
+                discounted_total,
+                mapping[
+                    "original_jars"
+                ],
+                mapping[
+                    "slobberin_jars"
+                ]
             )
         )
 
 
-        if local_product is None:
+        # ----------------------------------------------------
+        # ONE LOCAL ITEM PER SAUCE IN THIS LINE
+        #
+        # A Combo line becomes two items: one Original and one
+        # Slobberin'. Each item becomes one sale_items row, one
+        # inventory decrease and one audit record at import.
+        # ----------------------------------------------------
 
-            unmapped_items.append(
+        for product_id, jars, revenue in (
+            (1, line_original_jars, original_revenue),
+            (2, line_slobberin_jars, slobberin_revenue)
+        ):
+
+            if jars == 0:
+
+                continue
+
+
+            local_product = (
+                local_products.get(
+                    product_id
+                )
+            )
+
+
+            if local_product is None:
+
+                unmapped_items.append(
+                    {
+                        "shopify_variant_id":
+                            variant_id,
+
+                        "product_title":
+                            line_item.get(
+                                "product_title"
+                            ),
+
+                        "quantity":
+                            jars,
+
+                        "reason":
+                            (
+                                f"Product {product_id} does not "
+                                "exist in the products table."
+                            )
+                    }
+                )
+
+
+                continue
+
+
+            scholarship_rate = (
+                Decimal(
+                    str(
+                        local_product[
+                            "scholarship_rate"
+                        ]
+                    )
+                )
+            )
+
+
+            scholarship_amount = (
+                revenue
+                * scholarship_rate
+            ).quantize(
+                Decimal(
+                    "0.01"
+                ),
+
+                # Same rounding rule as sale_service.py (half up).
+                rounding=ROUND_HALF_UP
+            )
+
+
+            total_scholarship += (
+                scholarship_amount
+            )
+
+
+            total_quantity += (
+                jars
+            )
+
+
+            preview_items.append(
                 {
+                    "mapped":
+                        True,
+
                     "shopify_variant_id":
                         variant_id,
 
-                    "product_title":
+                    "shopify_product":
                         line_item.get(
                             "product_title"
                         ),
 
-                    "quantity":
-                        quantity,
+                    "product_id":
+                        product_id,
 
-                    "reason":
-                        (
-                            "Mapped product_id does not exist "
-                            "in the products table."
-                        )
+                    "local_product":
+                        local_product[
+                            "product_name"
+                        ],
+
+                    # Jars of this sauce, not Shopify units.
+                    "quantity":
+                        jars,
+
+                    "allocated_revenue":
+                        revenue,
+
+                    "scholarship_rate":
+                        scholarship_rate,
+
+                    "scholarship_amount":
+                        scholarship_amount,
+
+                    "inventory_change":
+                        -jars
                 }
             )
-
-
-            continue
-
-
-        scholarship_rate = (
-            Decimal(
-                str(
-                    local_product[
-                        "scholarship_rate"
-                    ]
-                )
-            )
-        )
-
-
-        scholarship_amount = (
-            discounted_total
-            * scholarship_rate
-        ).quantize(
-            Decimal(
-                "0.01"
-            ),
-
-            # Same rounding rule as sale_service.py (half up).
-            rounding=ROUND_HALF_UP
-        )
-
-
-        total_scholarship += (
-            scholarship_amount
-        )
-
-
-        preview_items.append(
-            {
-                "mapped":
-                    True,
-
-                "shopify_variant_id":
-                    variant_id,
-
-                "shopify_product":
-                    line_item.get(
-                        "product_title"
-                    ),
-
-                "product_id":
-                    product_id,
-
-                "local_product":
-                    local_product[
-                        "product_name"
-                    ],
-
-                "quantity":
-                    quantity,
-
-                "allocated_revenue":
-                    discounted_total,
-
-                "scholarship_rate":
-                    scholarship_rate,
-
-                "scholarship_amount":
-                    scholarship_amount,
-
-                "inventory_change":
-                    -quantity
-            }
-        )
 
 
     # ========================================================
