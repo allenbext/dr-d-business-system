@@ -25,6 +25,9 @@ Every page lives in its own file:
                              - Count Inventory
                              - Other Movement
     page_scholarship.py    Scholarship Report
+    page_taxes.py          Sales Tax
+                             - NC Tax by County
+                             - Sales by State
     page_forecast.py       Demand Forecast
                              - Create Forecast
                              - Accuracy
@@ -66,6 +69,7 @@ from page_dashboard import render_dashboard
 from page_record_sale import render_record_sale
 from page_inventory import render_inventory
 from page_scholarship import render_scholarship
+from page_taxes import render_taxes
 from page_forecast import render_forecast
 from shopify_ui import render_shopify_page
 
@@ -87,6 +91,7 @@ NAVIGATION = {
     ],
     "Reports & Planning": [
         "Scholarship",
+        "Sales Tax",
         "Forecast"
     ],
     "Settings": [
@@ -99,6 +104,7 @@ PAGES = {
     "Record Sale": render_record_sale,
     "Inventory": render_inventory,
     "Scholarship": render_scholarship,
+    "Sales Tax": render_taxes,
     "Forecast": render_forecast,
     "Shopify": render_shopify_page
 }

@@ -43,6 +43,7 @@ Added beyond the Phase 1 scope:
 - Manufacturer batches, samples, donations, damaged jars, gifts, replacement shipments.
 - Physical inventory count with automatic correction.
 - Inventory audit trail and reconciliation check.
+- Sales tax: 2% filled in automatically on Record Sale, a monthly NC tax report by county for the CPA, and a check on sales to other states against sales tax thresholds (Sales Tax page).
 - Dashboard with revenue, estimated profit and scholarship due.
 - Excel reports: Business Report, Monthly Scholarship Report, Inventory Report.
 - Shopify integration layer (prepared; live import is switched off until store credentials are provided).
@@ -87,6 +88,8 @@ page_dashboard.py           Dashboard
 page_record_sale.py         Record Sale (Standard, Market Summary, Recent Sales)
 page_inventory.py           Inventory (Receive Batch, Count, Other Movement)
 page_scholarship.py         Scholarship Report
+page_taxes.py               Sales Tax (NC tax by county, sales by state)
+tax_service.py              Sales tax rules and reports
 page_forecast.py            Demand Forecast
 shopify_ui.py               Shopify page
 
@@ -140,6 +143,8 @@ Integrity rules enforced by the database:
 ## Business rules
 
 **Revenue.** `sales.total_amount` is product revenue only. Sales tax is stored separately and is not revenue.
+
+**Sales tax.** North Carolina taxes food at the local 2% food rate only. On Record Sale the tax is filled in as 2% of product revenue + shipping for retail sales delivered in NC, and 0 for other states and wholesale. Dr. D can type a different amount, for example when the cash he collected already included the tax; Market Summary tax stays a typed amount. The Sales Tax page groups each month's NC sales by county (a shipped order belongs to the delivery county, a market sale to the market's county), compares the tax collected with 2%, lists the sales that differ, and exports the result for the CPA. A second tab shows orders and sales per state for this year and last year against thresholds Dr. D can set (by default $100,000 or 200 orders) and flags states that come close. These are bookkeeping aids; the rate and rules must be confirmed by his CPA.
 
 **Revenue allocation.** The 16% scholarship depends on how much of a sale belongs to Slobberin' Sauce, so the split matters.
 
@@ -238,7 +243,7 @@ To connect a store later, add `SHOPIFY_STORE` and `SHOPIFY_ACCESS_TOKEN` to `.en
 
 ## Known limitations and next steps
 
-- Sales tax is entered by hand; it is not calculated from the county rate.
+- Sales tax uses one rule (2% food rate in NC, 0 elsewhere and for wholesale); it must be confirmed by the CPA, and other states' thresholds are watched but their taxes are not calculated.
 - Product cost uses the current `unit_cost`; a cost change is applied to past sales as well.
 - Batches are recorded when received, but sales are not assigned to a specific batch.
 - The forecast uses simple exponential smoothing with manually set seasonal factors; it does not model a trend.

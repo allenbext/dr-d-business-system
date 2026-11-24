@@ -11,7 +11,8 @@
 --
 --   - retail: one jar $10, two jars $18
 --   - wholesale: $6 per jar, sold by the case of 12
---   - 2% sales tax on North Carolina retail sales
+--   - 2% sales tax on North Carolina retail sales,
+--     charged on the sauce AND the shipping charge
 --   - 16% scholarship on Slobberin' Sauce revenue
 --   - a production batch of about 1,100 - 1,200 jars
 --   - about 300 online orders on the day Slobberin' Sauce
@@ -391,7 +392,7 @@ SELECT
     revenue,
 
     CASE
-        WHEN state = 'NC' THEN ROUND(revenue * 0.02, 2)
+        WHEN state = 'NC' THEN ROUND((revenue + shipping_revenue) * 0.02, 2)
         ELSE 0
     END,
 
@@ -400,7 +401,7 @@ SELECT
     ROUND(
         (
             revenue
-            + CASE WHEN state = 'NC' THEN revenue * 0.02 ELSE 0 END
+            + CASE WHEN state = 'NC' THEN (revenue + shipping_revenue) * 0.02 ELSE 0 END
             + shipping_revenue
         ) * 0.029 + 0.30,
         2
@@ -538,9 +539,9 @@ SELECT
     o.original_qty,
     o.slobberin_qty,
     o.revenue,
-    ROUND(o.revenue * 0.02, 2),
+    ROUND((o.revenue + 8.00) * 0.02, 2),
     8.00,
-    ROUND((o.revenue * 1.02 + 8.00) * 0.029 + 0.30, 2),
+    ROUND((o.revenue + 8.00) * 1.02 * 0.029 + 0.30, 2),
     ROUND((8.00 + (RANDOM() - 0.6) * 3)::numeric, 2)
 
 FROM orders AS o,
@@ -628,7 +629,13 @@ SELECT
 
     CASE
         WHEN s.state = 'NC'
-        THEN ROUND((18 * (s.total_qty / 2) + 10 * (s.total_qty % 2)) * 0.02, 2)
+        THEN ROUND(
+            (
+                18 * (s.total_qty / 2) + 10 * (s.total_qty % 2)
+                + CASE WHEN s.total_qty <= 2 THEN 8.00 ELSE 10.00 END
+            ) * 0.02,
+            2
+        )
         ELSE 0
     END,
 
@@ -636,9 +643,11 @@ SELECT
 
     ROUND(
         (
-            (18 * (s.total_qty / 2) + 10 * (s.total_qty % 2))
+            (
+                18 * (s.total_qty / 2) + 10 * (s.total_qty % 2)
+                + CASE WHEN s.total_qty <= 2 THEN 8.00 ELSE 10.00 END
+            )
             * CASE WHEN s.state = 'NC' THEN 1.02 ELSE 1.00 END
-            + CASE WHEN s.total_qty <= 2 THEN 8.00 ELSE 10.00 END
         ) * 0.029 + 0.30,
         2
     ),
@@ -1691,5 +1700,4 @@ FROM forecasts
 
 ORDER BY
     forecast_week;
-
 

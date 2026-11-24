@@ -49,6 +49,8 @@ from sale_service import (
 
 from scholarship_service import get_scholarship_rate
 
+from tax_service import suggest_sales_tax
+
 from ui_helpers import (
     STRETCH,
     calc_rows,
@@ -126,6 +128,11 @@ def _init_standard_state():
     # False = Dr. D typed his own amount; do not overwrite it.
     state.setdefault("std_revenue_auto", True)
 
+    # Same idea for sales tax: 2% is filled in automatically
+    # until Dr. D types a different amount (for example 0 when
+    # the cash he collected already included the tax).
+    state.setdefault("std_tax_auto", True)
+
 
 def _reset_standard_fields():
     """
@@ -145,6 +152,7 @@ def _reset_standard_fields():
     state.std_fee = 0.0
     state.std_ship_expense = 0.0
     state.std_revenue_auto = True
+    state.std_tax_auto = True
 
 
 def _standard_suggestion():
@@ -164,6 +172,38 @@ def _standard_suggestion():
     )
 
 
+def _tax_suggestion():
+    """
+    Sales tax for the amounts, channel and state currently
+    entered (see tax_service.suggest_sales_tax):
+
+        retail in NC   2% of product revenue + shipping
+        other states   0
+        wholesale      0
+    """
+
+    state = st.session_state
+
+    return float(
+        suggest_sales_tax(
+            state.std_revenue,
+            state.std_ship_revenue,
+            state.std_channel,
+            state.std_state
+        )
+    )
+
+
+def _refresh_tax():
+    """
+    Recalculate the tax, unless Dr. D typed his own amount.
+    """
+
+    if st.session_state.std_tax_auto:
+
+        st.session_state.std_tax = _tax_suggestion()
+
+
 # ============================================================
 # STANDARD SALE: CALLBACKS
 # ============================================================
@@ -177,6 +217,8 @@ def _on_products_change():
     if st.session_state.std_revenue_auto:
 
         st.session_state.std_revenue = _standard_suggestion()
+
+    _refresh_tax()
 
 
 def _on_channel_change():
@@ -205,6 +247,21 @@ def _on_revenue_change():
     st.session_state.std_revenue_auto = (
         revenue == 0
         or abs(revenue - _standard_suggestion()) < 0.005
+    )
+
+    _refresh_tax()
+
+
+def _on_tax_change():
+    """
+    Dr. D typed a tax amount.
+
+    If it differs from the suggested 2%, automatic filling stops
+    for this sale. The amount he typed is the amount saved.
+    """
+
+    st.session_state.std_tax_auto = (
+        abs(st.session_state.std_tax - _tax_suggestion()) < 0.005
     )
 
 
@@ -410,7 +467,8 @@ def _render_standard_sale(scholarship_percent):
 
                 st.text_input(
                     "State",
-                    key="std_state"
+                    key="std_state",
+                    on_change=_refresh_tax
                 )
 
             # ------------------------------------------------
@@ -434,7 +492,14 @@ def _render_standard_sale(scholarship_percent):
                         min_value=0.0,
                         step=0.01,
                         format="%.2f",
-                        key="std_tax"
+                        key="std_tax",
+                        on_change=_on_tax_change,
+                        help=(
+                            "Filled in automatically: 2% of product "
+                            "revenue + shipping for retail sales in NC, "
+                            "0 for other states and wholesale. Type a "
+                            "different amount if needed."
+                        )
                     )
 
                     st.number_input(
@@ -443,6 +508,7 @@ def _render_standard_sale(scholarship_percent):
                         step=0.01,
                         format="%.2f",
                         key="std_ship_revenue",
+                        on_change=_refresh_tax,
                         help="What the customer paid for shipping."
                     )
 
@@ -555,6 +621,16 @@ def _render_standard_sale(scholarship_percent):
                             "Estimated profit",
                             format_currency(preview["estimated_profit"]),
                             "strong"
+                        )
+                    )
+
+                    # Sales tax is not income: it is owed to the
+                    # state, so it is shown apart from the profit.
+                    rows.append(
+                        (
+                            "Sales tax (owed to NC)",
+                            format_currency(state.std_tax),
+                            "muted"
                         )
                     )
 
